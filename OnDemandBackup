@@ -1,0 +1,26 @@
+$automationAccount = <AA name>
+
+# Ensures you do not inherit an AzContext in your runbook
+Disable-AzContextAutosave -Scope Process | Out-Null
+
+# Connect using a Managed Service Identity
+try {
+        $AzureContext = (Connect-AzAccount -Identity).context
+    }
+catch{
+        Write-Output "There is no system-assigned user identity. Aborting."; 
+        exit
+    }
+# set and store context
+$AzureContext = Set-AzContext -SubscriptionName $AzureContext.Subscription `
+    -DefaultProfile $AzureContext
+
+# Selecting the needed container
+$targetVault = Get-AzRecoveryServicesVault -Name <RSV name>
+$namedContainer = Get-AzRecoveryServicesBackupContainer -ContainerType "AzureVM" `
+ -FriendlyName "vmname" -VaultId $targetVault.ID
+$item = Get-AzRecoveryServicesBackupItem -Container $namedContainer -WorkloadType `
+ "AzureVM" -VaultId $targetVault.ID
+$endDate = (Get-Date).AddDays(2).ToUniversalTime()
+Backup-AzRecoveryServicesBackupItem -Item $item -VaultId $targetVault.ID `
+ -ExpiryDateTimeUTC $endDate
